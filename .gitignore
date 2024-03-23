@@ -1,3 +1,5 @@
 config.json
 .venv
+.idea/*
 .idea
+/updater.log

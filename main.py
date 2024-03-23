@@ -1,4 +1,7 @@
 import json
+import logging
+import sys
+
 import requests
 from time import sleep
 from CloudFlare import CloudFlare
@@ -22,24 +25,49 @@ config = load_config()
 email = config['email']
 token = config['token_key']
 
+logger = logging.getLogger('updater')
+
+if 'log_file_name' in config:
+    log_file_name = config['log_file_name']
+    logging.basicConfig(filename=log_file_name,
+                        filemode='a',
+                        format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                        datefmt='%H:%M:%S',
+                        level=logging.INFO)
+else:
+    logging.basicConfig(stream=sys.stdout,
+                        format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                        datefmt='%H:%M:%S',
+                        level=logging.INFO)
+
+print("Running CloudFlare Updater")
+logger.info("Running CloudFlare Updater")
+
 cf = CloudFlare(email, token=token)
 
 while True:
     old_ip = None
     current_ip = get_external_ip()
-    print(current_ip)
+    logger.info(f"Current IP: {current_ip}")
     if current_ip != old_ip:
         for zone in config['zones']:
             for domain in zone['domains']:
                 zone_name = zone['name']
 
-                zone = cf.zones.get(params={"name": zone_name})[0]
-                record = cf.zones.dns_records.get(zone['id'], params={"name": domain, "type": "A"})[0]
+                zones = cf.zones.get(params={"name": zone_name})
+                if len(zones) < 1:
+                    logger.error(f"No records found for zone: {zone_name}")
+                    continue
 
-                update_dns_record_ip(cf, zone['id'], record, current_ip)
+                records = cf.zones.dns_records.get(zones[0]['id'], params={"name": domain, "type": "A"})
+                if len(records) < 1:
+                    logger.error(f"No records found for domain: {domain}")
+                    continue
 
-                print(f'DNS запись обновлена для {domain} с IP {current_ip}')
+                update_dns_record_ip(cf, zones[0]['id'], records[0], current_ip)
+
+                logger.info(f'DNS запись обновлена для {domain} с IP {current_ip}')
                 old_ip = current_ip
     else:
-        print('IP не изменился, ожидание следующей проверки...')
+        logger.info('IP не изменился, ожидание следующей проверки...')
     sleep(config['refresh_interval'])
