@@ -45,8 +45,9 @@ logger.info("Running CloudFlare Updater")
 
 cf = CloudFlare(email, token=token)
 
+old_ip = None
+
 while True:
-    old_ip = None
     current_ip = get_external_ip()
     logger.info(f"Current IP: {current_ip}")
     if current_ip != old_ip:
@@ -67,7 +68,7 @@ while True:
                 update_dns_record_ip(cf, zones[0]['id'], records[0], current_ip)
 
                 logger.info(f'DNS запись обновлена для {domain} с IP {current_ip}')
-                old_ip = current_ip
+        old_ip = current_ip
     else:
         logger.info('IP не изменился, ожидание следующей проверки...')
     sleep(config['refresh_interval'])
